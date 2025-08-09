@@ -45,7 +45,7 @@ services:
       - NODE_ENV=development
       - INTERNAL_API_URL=http://internal-api:3000
       - AUTH_SERVICE_URL=http://auth-service:3000
-      - ALLOWED_ORIGINS=http://192.168.0.101:3002,http://localhost:3002  # Add both IPs
+      - ALLOWED_ORIGINS=http://localhost:3002
     networks:
       - internal
       - external
@@ -61,8 +61,8 @@ services:
       - "0.0.0.0:3002:3000"
     environment:
       - NODE_ENV=development
-      - REACT_APP_AUTH_URL=http://192.168.0.101:3001
-      - REACT_APP_API_URL=http://192.168.0.101:8080
+      - REACT_APP_AUTH_URL=http://localhost:3001
+      - REACT_APP_API_URL=http://localhost:8080
     networks:
       - external
     volumes:
