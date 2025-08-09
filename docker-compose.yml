@@ -1,0 +1,84 @@
+services:
+  # Internal API (Your backend - not directly accessible from outside)
+  internal-api:
+    build: ./api
+    expose:
+      - "3000"
+    environment:
+      - NODE_ENV=development
+      - API_NAME=Internal Backend API
+    networks:
+      - internal
+    volumes:
+      - ./api:/app
+      - /app/node_modules
+    restart: unless-stopped
+
+  # Auth Service (Simulates Azure AD)
+  auth-service:
+    build: ./auth
+    ports:
+      - "0.0.0.0:3001:3000"
+    environment:
+      - NODE_ENV=development
+      - AZURE_TENANT_ID=6aaa69e5-366a-44de-a13c-874c15ca7cdc
+      - AZURE_CLIENT_ID=67c8cf0f-5df3-4caf-8d05-13c7cbc92519
+      - JWT_SECRET=your-super-secret-jwt-key-here
+      - TOKEN_EXPIRY=3600
+    networks:
+      - internal
+      - external
+    volumes:
+      - ./auth:/app
+      - /app/node_modules
+    restart: unless-stopped
+
+  # App Proxy (Simulates Azure Application Proxy)
+  app-proxy:
+    build: ./proxy
+    ports:
+      - "0.0.0.0:8080:3000"
+    depends_on:
+      - internal-api
+      - auth-service
+    environment:
+      - NODE_ENV=development
+      - INTERNAL_API_URL=http://internal-api:3000
+      - AUTH_SERVICE_URL=http://auth-service:3000
+      - ALLOWED_ORIGINS=http://192.168.0.101:3002,http://localhost:3002  # Add both IPs
+    networks:
+      - internal
+      - external
+    volumes:
+      - ./proxy:/app
+      - /app/node_modules
+    restart: unless-stopped
+
+  # Frontend Demo App (Simulates external client)
+  frontend:
+    build: ./frontend
+    ports:
+      - "0.0.0.0:3002:3000"
+    environment:
+      - NODE_ENV=development
+      - REACT_APP_AUTH_URL=http://192.168.0.101:3001
+      - REACT_APP_API_URL=http://192.168.0.101:8080
+    networks:
+      - external
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    restart: unless-stopped
+
+networks:
+  internal:
+    driver: bridge
+    internal: true # This network cannot access external internet
+  external:
+    driver: bridge
+
+volumes:
+  node_modules_api:
+  node_modules_auth:
+  node_modules_proxy:
+  node_modules_frontend:

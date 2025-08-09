@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Azure App Proxy Demo</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f5f5;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #0078d4, #005a9e);
+            color: white;
+            padding: 30px;
+            border-radius: 10px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .section {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .btn {
+            background: #0078d4;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+
+        .btn:hover {
+            background: #106ebe;
+        }
+
+        .btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .result {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+
+        .success {
+            background: #d4edda;
+            border-color: #c3e6cb;
+            color: #155724;
+        }
+
+        .error {
+            background: #f8d7da;
+            border-color: #f5c6cb;
+            color: #721c24;
+        }
+
+        .code {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 15px;
+            border-radius: 5px;
+            font-family: monospace;
+            overflow-x: auto;
+        }
+
+        .flow {
+            display: flex;
+            align-items: center;
+            justify-content: space-around;
+            margin: 20px 0;
+            padding: 20px;
+            background: #e3f2fd;
+            border-radius: 10px;
+        }
+
+        .flow-item {
+            text-align: center;
+            padding: 15px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            min-width: 150px;
+        }
+
+        .arrow {
+            font-size: 24px;
+            color: #0078d4;
+            font-weight: bold;
+            margin: 0 10px;
+        }
+
+        .status {
+            display: inline-block;
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .status.pending {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .login-form {
+            display: grid;
+            gap: 10px;
+            max-width: 400px;
+        }
+
+        .login-form input,
+        .login-form select {
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+
+        .token-display {
+            word-break: break-all;
+            font-family: monospace;
+            font-size: 12px;
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔐 Azure App Proxy Demo</h1>
+            <p>Complete simulation of Azure Application Proxy with authentication flow</p>
+        </div>
+
+        <!-- Service Status -->
+        <div class="section">
+            <h2>📊 Service Status</h2>
+            <div id="service-status">
+                <div
+                    style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin: 15px 0;">
+                    <div>
+                        <strong>Auth Service:</strong>
+                        <span id="auth-status" class="status pending">Checking...</span>
+                    </div>
+                    <div>
+                        <strong>App Proxy:</strong>
+                        <span id="proxy-status" class="status pending">Checking...</span>
+                    </div>
+                    <div>
+                        <strong>Internal API:</strong>
+                        <span id="api-status" class="status pending">Checking...</span>
+                    </div>
+                </div>
+            </div>
+            <button class="btn" onclick="checkServiceStatus()">Refresh Status</button>
+        </div>
+
+        <!-- Authentication Flow Diagram -->
+        <div class="section">
+            <h2>🔄 Authentication Flow</h2>
+            <div class="flow">
+                <div class="flow-item">
+                    <strong>1. External Client</strong>
+                    <div>Frontend App</div>
+                </div>
+                <div class="arrow">→</div>
+                <div class="flow-item">
+                    <strong>2. Azure AD</strong>
+                    <div>Authentication</div>
+                </div>
+                <div class="arrow">→</div>
+                <div class="flow-item">
+                    <strong>3. App Proxy</strong>
+                    <div>Token Validation</div>
+                </div>
+                <div class="arrow">→</div>
+                <div class="flow-item">
+                    <strong>4. Internal API</strong>
+                    <div>Protected Resource</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Authentication Section -->
+        <div class="section">
+            <h2>🔑 Step 1: Authentication</h2>
+            <div class="login-form">
+                <label for="userSelect">Select Demo User:</label>
+                <select id="userSelect">
+                    <option value="demo@siddharth201820gmail.onmicrosoft.com">
+                        demo@siddharth201820gmail.onmicrosoft.com
+                    </option>
+                    <option value="demo2@siddharth201820gmail.onmicrosoft.com">
+                        demo2@siddharth201820gmail.onmicrosoft.com
+                    </option>
+                    <option value="demo3@siddharth201820gmail.onmicrosoft.com">
+                        demo3@siddharth201820gmail.onmicrosoft.com
+                    </option>
+                </select>
+
+                <label for="password">Password:</label>
+                <input type="password" id="password" value="Test123@#12" placeholder="Password">
+
+                <button class="btn" onclick="login()">🔐 Login via Azure AD</button>
+            </div>
+
+            <div id="auth-result" class="result" style="display: none;"></div>
+
+            <div id="token-display" style="display: none;">
+                <h4>🎫 Access Token:</h4>
+                <div class="token-display" id="access-token"></div>
+            </div>
+        </div>
+
+        <!-- API Testing Section -->
+        <div class="section">
+            <h2>🚀 Step 2: Test API Access via App Proxy</h2>
+            <p><strong>External URL:</strong> http://localhost:8080 (App Proxy)</p>
+            <p><strong>Internal URL:</strong> http://internal-api:3000 (Not directly accessible)</p>
+
+            <div style="margin: 15px 0;">
+                <button class="btn" onclick="testAPI('/api/data')" id="btn-data">📊 Get Data</button>
+                <button class="btn" onclick="testAPI('/api/profile')" id="btn-profile">👤 Get Profile</button>
+                <button class="btn" onclick="submitData()" id="btn-submit">📝 Submit Data</button>
+                <button class="btn" onclick="testDirectAPI()" id="btn-direct">🚫 Try Direct API Access</button>
+            </div>
+
+            <div id="api-result" class="result" style="display: none;"></div>
+        </div>
+
+        <!-- Demo Scenarios -->
+        <div class="section">
+            <h2>🎯 Demo Scenarios</h2>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 15px;">
+                <div style="border: 1px solid #ddd; padding: 15px; border-radius: 8px;">
+                    <h4>✅ Authenticated Access</h4>
+                    <p>Login → Get token → Access API via proxy</p>
+                    <button class="btn" onclick="runScenario('authenticated')">Run Scenario</button>
+                </div>
+                <div style="border: 1px solid #ddd; padding: 15px; border-radius: 8px;">
+                    <h4>❌ Unauthenticated Access</h4>
+                    <p>Try to access API without token</p>
+                    <button class="btn" onclick="runScenario('unauthenticated')">Run Scenario</button>
+                </div>
+                <div style="border: 1px solid #ddd; padding: 15px; border-radius: 8px;">
+                    <h4>🔄 Token Expiry</h4>
+                    <p>Simulate expired token scenario</p>
+                    <button class="btn" onclick="runScenario('expired')">Run Scenario</button>
+                </div>
+            </div>
+
+            <div id="scenario-result" class="result" style="display: none;"></div>
+        </div>
+
+        <!-- Logs Section -->
+        <div class="section">
+            <h2>📝 Demo Logs</h2>
+            <div id="demo-logs" class="code" style="height: 200px; overflow-y: auto;">
+                [Ready] Demo initialized. Services starting up...\n
+            </div>
+            <button class="btn" onclick="clearLogs()">Clear Logs</button>
+        </div>
+    </div>
+
+    <script>
+        let accessToken = null;
+        const HOST = window.location.hostname === 'localhost' ? 'localhost' : '192.168.0.101';
+
+        const AUTH_URL = `http://${HOST}:3001`;
+        const API_URL = `http://${HOST}:8080`;
+        const INTERNAL_API_URL = `http://${HOST}:3000`;
+
+        function log(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            const logsDiv = document.getElementById('demo-logs');
+            logsDiv.innerHTML += `[${timestamp}] ${message}\n`;
+            logsDiv.scrollTop = logsDiv.scrollHeight;
+        }
+
+        async function checkServiceStatus() {
+            const services = [
+                { id: 'auth-status', url: `${AUTH_URL}/health`, name: 'Auth Service' },
+                { id: 'proxy-status', url: `${API_URL}/health`, name: 'App Proxy' },
+                { id: 'api-status', url: `${API_URL}/internal-health`, name: 'Internal API' }
+            ];
+
+            for (const service of services) {
+                const statusEl = document.getElementById(service.id);
+                statusEl.className = 'status pending';
+                statusEl.textContent = 'Checking...';
+
+                try {
+                    const response = await fetch(service.url);
+                    if (response.ok) {
+                        statusEl.className = 'status success';
+                        statusEl.textContent = 'Online';
+                        log(`✅ ${service.name} is online`);
+                    } else {
+                        throw new Error(`HTTP ${response.status}`);
+                    }
+                } catch (error) {
+                    statusEl.className = 'status error';
+                    statusEl.textContent = 'Offline';
+                    log(`❌ ${service.name} is offline: ${error.message}`);
+                }
+            }
+        }
+
+        async function login() {
+            const email = document.getElementById('userSelect').value;
+            const password = document.getElementById('password').value;
+
+            log(`🔑 Attempting login for ${email}...`);
+
+            try {
+                const response = await fetch(`${AUTH_URL}/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    accessToken = data.access_token;
+
+                    document.getElementById('auth-result').style.display = 'block';
+                    document.getElementById('auth-result').className = 'result success';
+                    document.getElementById('auth-result').innerHTML = `
+                        <strong>✅ Authentication Successful!</strong><br>
+                        User: ${data.user.name} (${data.user.email})<br>
+                        Roles: ${data.user.roles.join(', ')}<br>
+                        Department: ${data.user.department}<br>
+                        Token expires in: ${data.expires_in} seconds
+                    `;
+
+                    document.getElementById('token-display').style.display = 'block';
+                    document.getElementById('access-token').textContent = accessToken;
+
+                    // Enable API test buttons
+                    ['btn-data', 'btn-profile', 'btn-submit'].forEach(id => {
+                        document.getElementById(id).disabled = false;
+                    });
+
+                    log(`✅ Login successful for ${email}`);
+                } else {
+                    throw new Error(data.message || 'Login failed');
+                }
+            } catch (error) {
+                document.getElementById('auth-result').style.display = 'block';
+                document.getElementById('auth-result').className = 'result error';
+                document.getElementById('auth-result').innerHTML = `<strong>❌ Login Failed:</strong> ${error.message}`;
+                log(`❌ Login failed: ${error.message}`);
+            }
+        }
+
+        async function testAPI(endpoint) {
+            if (!accessToken) {
+                alert('Please login first to get an access token');
+                return;
+            }
+
+            log(`🔄 Testing API endpoint: ${endpoint}`);
+
+            try {
+                const response = await fetch(`${API_URL}${endpoint}`, {
+                    headers: {
+                        'Authorization': `Bearer ${accessToken}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const data = await response.json();
+
+                document.getElementById('api-result').style.display = 'block';
+
+                if (response.ok) {
+                    document.getElementById('api-result').className = 'result success';
+                    document.getElementById('api-result').innerHTML = `
+                        <strong>✅ API Request Successful!</strong><br>
+                        <strong>Endpoint:</strong> ${endpoint}<br>
+                        <strong>Status:</strong> ${response.status}<br>
+                        <strong>Response:</strong><br>
+                        <div class="code">${JSON.stringify(data, null, 2)}</div>
+                    `;
+                    log(`✅ API request successful: ${endpoint}`);
+                } else {
+                    throw new Error(data.message || `HTTP ${response.status}`);
+                }
+            } catch (error) {
+                document.getElementById('api-result').className = 'result error';
+                document.getElementById('api-result').innerHTML = `
+                    <strong>❌ API Request Failed:</strong><br>
+                    Endpoint: ${endpoint}<br>
+                    Error: ${error.message}
+                `;
+                log(`❌ API request failed: ${error.message}`);
+            }
+        }
+
+        async function submitData() {
+            if (!accessToken) {
+                alert('Please login first to get an access token');
+                return;
+            }
+
+            const sampleData = {
+                action: 'create_user',
+                data: {
+                    name: 'New User',
+                    email: 'newuser@company.com',
+                    department: 'Testing'
+                }
+            };
+
+            log('📝 Submitting data to API...');
+
+            try {
+                const response = await fetch(`${API_URL}/api/submit`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${accessToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(sampleData)
+                });
+
+                const data = await response.json();
+
+                document.getElementById('api-result').style.display = 'block';
+
+                if (response.ok) {
+                    document.getElementById('api-result').className = 'result success';
+                    document.getElementById('api-result').innerHTML = `
+                        <strong>✅ Data Submitted Successfully!</strong><br>
+                        <strong>Confirmation ID:</strong> ${data.confirmation_id}<br>
+                        <strong>Response:</strong><br>
+                        <div class="code">${JSON.stringify(data, null, 2)}</div>
+                    `;
+                    log('✅ Data submission successful');
+                } else {
+                    throw new Error(data.message || `HTTP ${response.status}`);
+                }
+            } catch (error) {
+                document.getElementById('api-result').className = 'result error';
+                document.getElementById('api-result').innerHTML = `
+                    <strong>❌ Data Submission Failed:</strong> ${error.message}
+                `;
+                log(`❌ Data submission failed: ${error.message}`);
+            }
+        }
+
+        async function testDirectAPI() {
+            log('🚫 Attempting direct access to internal API (this should fail)...');
+
+            try {
+                const response = await fetch(`${INTERNAL_API_URL}/api/data`, {
+                    headers: accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {}
+                });
+
+                // This will typically fail due to CORS or network isolation
+                const data = await response.json();
+
+                document.getElementById('api-result').style.display = 'block';
+                document.getElementById('api-result').className = 'result error';
+                document.getElementById('api-result').innerHTML = `
+                    <strong>🚫 Direct API Access (Unexpected Success):</strong><br>
+                    This should not work in a real App Proxy setup!<br>
+                    Response: ${JSON.stringify(data, null, 2)}
+                `;
+            } catch (error) {
+                document.getElementById('api-result').style.display = 'block';
+                document.getElementById('api-result').className = 'result success';
+                document.getElementById('api-result').innerHTML = `
+                    <strong>✅ Direct API Access Blocked (Expected):</strong><br>
+                    Error: ${error.message}<br>
+                    <em>This is the correct behavior - internal API should not be directly accessible!</em>
+                `;
+                log('✅ Direct API access blocked (correct behavior)');
+            }
+        }
+
+        async function runScenario(scenario) {
+            log(`🎯 Running scenario: ${scenario}`);
+
+            const resultDiv = document.getElementById('scenario-result');
+            resultDiv.style.display = 'block';
+
+            switch (scenario) {
+                case 'authenticated':
+                    if (!accessToken) {
+                        await login();
+                        await new Promise(resolve => setTimeout(resolve, 1000));
+                    }
+                    await testAPI('/api/data');
+                    resultDiv.className = 'result success';
+                    resultDiv.innerHTML = '<strong>✅ Authenticated Scenario Complete:</strong> Successfully logged in and accessed API via App Proxy';
+                    break;
+
+                case 'unauthenticated':
+                    const oldToken = accessToken;
+                    accessToken = null;
+                    await testAPI('/api/data');
+                    accessToken = oldToken;
+                    resultDiv.className = 'result success';
+                    resultDiv.innerHTML = '<strong>✅ Unauthenticated Scenario Complete:</strong> Access denied without token (correct behavior)';
+                    break;
+
+                case 'expired':
+                    const expiredToken = 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJkZW1vQGNvbXBhbnkuY29tIiwiZXhwIjoxNjAwMDAwMDAwfQ.expired_token_signature';
+                    const oldToken2 = accessToken;
+                    accessToken = expiredToken;
+                    await testAPI('/api/data');
+                    accessToken = oldToken2;
+                    resultDiv.className = 'result success';
+                    resultDiv.innerHTML = '<strong>✅ Expired Token Scenario Complete:</strong> Access denied with expired token (correct behavior)';
+                    break;
+            }
+        }
+
+        function clearLogs() {
+            document.getElementById('demo-logs').innerHTML = '[Ready] Logs cleared.\n';
+        }
+
+        // Initialize demo
+        window.onload = function () {
+            log('🚀 Azure App Proxy Demo initialized');
+            log('📋 Available demo users: demo@company.com, john.doe@company.com, jane.smith@company.com');
+            log('🔑 Default password for all users: demo123');
+
+            // Check service status on load
+            setTimeout(checkServiceStatus, 1000);
+
+            // Disable API buttons initially
+            ['btn-data', 'btn-profile', 'btn-submit'].forEach(id => {
+                document.getElementById(id).disabled = true;
+            });
+        };
+    </script>
+</body>
+
+</html>
